@@ -29,8 +29,12 @@ class Auction(SQLModel, table=True):
     description: str | None = Field(default=None)
 
     starting_bid: Decimal = Field(default=0.0, max_digits=10, decimal_places=2)
-    current_highest_bid: Decimal = Field(default=0.0, max_digits=10, decimal_places=2)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    current_highest_bid: Decimal = Field(
+        default=0.0, max_digits=10, decimal_places=2
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     start_time: datetime = Field(nullable=False)
     end_time: datetime = Field(nullable=False)
 
@@ -58,7 +62,9 @@ class Auction(SQLModel, table=True):
 class Bid(SQLModel, table=True):
     id: UUID = Field(primary_key=True, default_factory=uuid4, index=True)
     amount: Decimal = Field(max_digits=10, decimal_places=2, nullable=False)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     auction_id: UUID = Field(foreign_key="auction.id", nullable=False)
     bidder_id: UUID = Field(foreign_key="user.id", nullable=False)
     auction: Auction = Relationship(back_populates="bids")
@@ -71,9 +77,7 @@ class AuctionCreate(BaseModel):
     starting_bid: Decimal
     start_time: datetime
     end_time: datetime
-    creator_id: UUID  # until we have oauth2
 
 
 class BidCreate(BaseModel):
     amount: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
-    bidder_id: UUID
