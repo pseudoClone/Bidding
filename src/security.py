@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
-from jose import jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 from dotenv import load_dotenv
 import os
+import jwt
 
 load_dotenv()
 
@@ -10,15 +10,18 @@ ALGORITHM = str(os.getenv("ALGORITHM"))
 SECRET_KEY = str(os.getenv("SECRET_KEY"))
 ACCESS_TOKEN_EXPIRES_IN = int(str(os.getenv("ACCESS_TOKEN_EXPIRES_IN")))
 
-passwordContext = CryptContext(schemes=["bcrypt"])
+passwordHash = PasswordHash.recommended()
+"""
+https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/#hash-and-verify-the-passwords
+"""
 
 
 def verifyPassword(plaintext: str, hashed: str) -> bool:
-    return passwordContext.verify(plaintext, hashed)
+    return passwordHash.verify(plaintext, hashed)
 
 
 def getPasswordHash(password: str) -> str:
-    return passwordContext.hash(password)
+    return passwordHash.hash(password)
 
 
 def createAccessToken(data: dict, expiresDelta: timedelta | None = None):
