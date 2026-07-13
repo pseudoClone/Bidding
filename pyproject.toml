@@ -10,3 +10,5 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "sqlmodel>=0.0.39",
 ]
+[tool.ruff]
+line-length = 80
