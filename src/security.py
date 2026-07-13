@@ -7,7 +7,7 @@ from jwt import PyJWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
-from .main import get_session
+from .engine import get_session
 from .model import User
 
 load_dotenv()
