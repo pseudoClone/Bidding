@@ -3,31 +3,25 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from sqlmodel import Session, select
 from uuid import UUID
-from .engine import engine
+from .engine import get_session
 from .model import Auction, AuctionCreate, BidCreate, Bid, User
 from datetime import datetime, timezone
 from .security import verifyPassword, createAccessToken
+from .security import getCurrentUser
 
 app = FastAPI()
 
 
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 @app.post("/auctions", response_model=Auction)
 def create_auction(
-    auction_data: AuctionCreate, session: Session = Depends(get_session)
+    auction_data: AuctionCreate,
+    session: Session = Depends(get_session),
+    currentUseri: User = Depends(getCurrentUser),
 ):
     db_auction = Auction(
-        title=auction_data.title,
-        description=auction_data.description,
-        starting_bid=auction_data.starting_bid,
+        **auction_data.model_dump(),
         current_highest_bid=auction_data.starting_bid,
-        start_time=auction_data.start_time,
-        end_time=auction_data.end_time,
-        creator_id=auction_data.creator_id,
+        creator_id=currentUseri.id,
     )
     session.add(db_auction)
     session.commit()
@@ -40,6 +34,7 @@ def place_bid(
     auction_id: UUID,
     bid_data: BidCreate,
     session: Session = Depends(get_session),
+    currentUseri: User = Depends(getCurrentUser),
 ):
     auction = session.get(Auction, auction_id)
     if not auction:
@@ -64,7 +59,7 @@ def place_bid(
             detail="Bid must be higher than the current highest bid"
             + f"{auction.current_highest_bid}",
         )
-    if bid_data.bidder_id == auction.creator_id:
+    if currentUseri.id == auction.creator_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot place a bid in own auction",
@@ -72,7 +67,7 @@ def place_bid(
     new_bid = Bid(
         amount=bid_data.amount,
         auction_id=auction_id,
-        bidder_id=bid_data.bidder_id,
+        bidder_id=currentUseri.id,
         timestamp=now,
     )
     session.add(new_bid)
