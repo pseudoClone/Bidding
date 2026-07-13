@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 from uuid import UUID
 from .engine import engine
-from .model import Auction, AuctionCreate, BidCreate, Bid
+from .model import Auction, AuctionCreate, BidCreate, Bid, User
 from datetime import datetime, timezone
+from .security import verifyPassword, createAccessToken
 
 app = FastAPI()
 
@@ -80,3 +82,23 @@ def place_bid(
     session.commit()
     session.refresh(new_bid)
     return new_bid
+
+
+@app.post("/token")
+def loginForAccessToken(
+    formData: OAuth2PasswordRequestForm = Depends(),
+    session: Session = Depends(get_session),
+):
+    statement = select(User).where(User.username == formData.username)
+    user = session.exec(statement=statement).first()
+
+    if not user or not verifyPassword(formData.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authorized to do this action",
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
+        )
+    accessToken = createAccessToken(data={"sub": str(user.id)})
+    return {"access_token": accessToken, "token_type": "bearer"}
