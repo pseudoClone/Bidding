@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 
 class User(SQLModel, table=True):
-    id: UUID | None = Field(
+    id: UUID = Field(
         primary_key=True, default_factory=uuid4, unique=True, index=True
     )
     username: str = Field(unique=True, index=True, nullable=False)
