@@ -1,7 +1,7 @@
 [project]
 name = "test-pydantic"
 version = "0.1.0"
-description = "Add your description here"
+description = "Initially started out as a test to see how much I know pydantic. Now this will be a bidding system"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
