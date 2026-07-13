@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 
 from sqlmodel import Session
-
+from uuid import UUID
 from .engine import engine
-from .model import Auction, AuctionCreate
+from .model import Auction, AuctionCreate, BidCreate, Bid
+from datetime import datetime, timezone
 
 app = FastAPI()
 
@@ -30,3 +31,41 @@ def create_auction(
     session.commit()
     session.refresh(db_auction)
     return db_auction
+
+
+@app.post("/auctions/{auction_id}/bid", response_model=Bid)
+def place_bid(
+    auction_id: UUID,
+    bid_data: BidCreate,
+    session: Session = Depends(get_session),
+):
+    auction = session.get(Auction, auction_id)
+    if not auction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"This auction with auction id: {auction_id} does not exist",
+        )
+    now = datetime.now(timezone.utc)
+    if now < auction.start_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Auction has not started yet",
+        )
+    if now > auction.end_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Auction has already ended",
+        )
+    new_bid = Bid(
+        amount=bid_data.amount,
+        auction_id=auction_id,
+        bidder_id=bid_data.bidder_id,
+        timestamp=now,
+    )
+    session.add(new_bid)
+    auction.current_highest_bid = bid_data.amount
+    session.add(auction)
+
+    session.commit()
+    session.refresh(new_bid)
+    return new_bid
