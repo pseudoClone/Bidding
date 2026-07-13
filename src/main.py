@@ -56,6 +56,17 @@ def place_bid(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Auction has already ended",
         )
+    if bid_data.amount <= auction.current_highest_bid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bid must be higher than the current highest bid"
+            + f"{auction.current_highest_bid}",
+        )
+    if bid_data.bidder_id == auction.creator_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot place a bid in own auction",
+        )
     new_bid = Bid(
         amount=bid_data.amount,
         auction_id=auction_id,
