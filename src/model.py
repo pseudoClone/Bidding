@@ -81,3 +81,9 @@ class AuctionCreate(BaseModel):
 
 class BidCreate(BaseModel):
     amount: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
