@@ -14,7 +14,7 @@ something like that.
 logger = logging.getLogger(__name__)
 
 
-class ConnnectionManager:
+class ConnectionManager:
     def __init__(self) -> None:
         self.activeConnections: dict[str, list[WebSocket]] = {}
 
@@ -48,4 +48,4 @@ class ConnnectionManager:
                     )
 
 
-manager = ConnnectionManager()
+manager = ConnectionManager()
