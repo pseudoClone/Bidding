@@ -157,7 +157,7 @@ async def auctionWebSocket(
             if not auction:
                 await webSocket.send_json({"error": "Auction not found"})
                 continue
-
+            session.refresh(auction)
             now = datetime.now(timezone.utc)
             if now < auction.start_time:
                 await webSocket.send_json(
