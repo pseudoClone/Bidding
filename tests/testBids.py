@@ -13,7 +13,7 @@ WS_BASE = "ws://127.0.0.1:8000"
 USERNAME = "david"
 PASSWORD = os.getenv("DAVID_PASSWORD")
 
-AUCTION_ID = "43e3b902-3832-4576-bc70-9653ffb9b0c2"
+AUCTION_ID = os.getenv("AUCTION_ID")
 
 
 async def get_token():
@@ -33,7 +33,7 @@ async def receiver(ws):
     try:
         while True:
             message = await ws.recv()
-            print("\nReceived:")
+            print("Received:")
             print(message)
 
     except Exception as e:
@@ -55,14 +55,8 @@ async def sender(ws):
 
 async def main():
     token = await get_token()
-
-    print("Logged in successfully.")
-
     ws_url = f"{WS_BASE}/auctions/{AUCTION_ID}/ws?token={token}"
-
     async with websockets.connect(ws_url) as ws:
-        print("Connected to websocket.")
-
         await asyncio.gather(
             receiver(ws),
             sender(ws),
