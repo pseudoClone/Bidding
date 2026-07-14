@@ -2,6 +2,7 @@ from sqlmodel import Field, SQLModel, Relationship
 from pydantic import model_validator, BaseModel
 from decimal import Decimal
 from uuid import UUID, uuid4
+from sqlalchemy import Column, DateTime
 from datetime import datetime, timezone
 
 
@@ -33,10 +34,20 @@ class Auction(SQLModel, table=True):
         default=0.0, max_digits=10, decimal_places=2
     )
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            default=lambda: datetime.now(timezone.utc),
+        )
     )
-    start_time: datetime = Field(nullable=False)
-    end_time: datetime = Field(nullable=False)
+
+    start_time: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+
+    end_time: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
 
     creator_id: UUID = Field(foreign_key="user.id", nullable=False)
 
@@ -63,7 +74,11 @@ class Bid(SQLModel, table=True):
     id: UUID = Field(primary_key=True, default_factory=uuid4, index=True)
     amount: Decimal = Field(max_digits=10, decimal_places=2, nullable=False)
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            default=lambda: datetime.now(timezone.utc),
+        )
     )
     auction_id: UUID = Field(foreign_key="auction.id", nullable=False)
     bidder_id: UUID = Field(foreign_key="user.id", nullable=False)
