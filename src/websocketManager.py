@@ -38,14 +38,19 @@ class ConnectionManager:
 
     async def broadcastToAuction(self, auctionID: UUID, message: dict):
         auctionKey = str(auctionID)
-        if auctionKey in self.activeConnections:
-            for connection in self.activeConnections[auctionKey]:
-                try:
-                    await connection.send_json(message)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to send message in auction {auctionKey}:\t{e}"
-                    )
+        if auctionKey not in self.activeConnections:
+            return
+        disconnected = []
+        for connection in self.activeConnections[auctionKey]:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to send message in auction {auctionKey}: {e}"
+                )
+                disconnected.append(connection)
+        for connection in disconnected:
+            self.disconnect(connection, auctionID)
 
 
 manager = ConnectionManager()
