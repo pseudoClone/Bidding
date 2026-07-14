@@ -7,16 +7,18 @@ from fastapi import (
     Query,
     WebSocketDisconnect,
 )
+from contextlib import asynccontextmanager
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
-from .engine import get_session
-from .model import Auction, AuctionCreate, BidCreate, Bid, User
+from .engine import get_session, init_db
+from .model import Auction, AuctionCreate, BidCreate, Bid, User, UserCreate
 from .security import (
     verifyPassword,
     createAccessToken,
     getCurrentUser,
     SECRET_KEY,
     ALGORITHM,
+    getPasswordHash,
 )
 from .websocketManager import manager
 import jwt
@@ -26,7 +28,16 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 from uuid import UUID
 
-app = FastAPI()
+
+# on startup thingy is deprecated but this is somehow better, IDK but onstartup
+# looked clean
+@asynccontextmanager
+async def Lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(lifespan=Lifespan)
 
 
 @app.post("/auctions", response_model=Auction)
@@ -138,7 +149,7 @@ async def getWebSocketUser(token: str, session: Session) -> User | None:
 @app.websocket("/auctions/{auction_id}/ws")
 async def auctionWebSocket(
     webSocket: WebSocket,
-    auctionID: UUID,
+    auction_id: UUID,
     token: str = Query(...),
     # This of this like spread operator in JS, but here it works with the URL
     session: Session = Depends(get_session),
@@ -147,7 +158,7 @@ async def auctionWebSocket(
     if not user:
         await webSocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    await manager.connect(webSocket=webSocket, auctionID=auctionID)
+    await manager.connect(webSocket=webSocket, auctionID=auction_id)
 
     try:
         while True:
@@ -162,7 +173,7 @@ async def auctionWebSocket(
                     {"error": "Invalid payload operation"}
                 )
                 continue
-            auction = session.get(Auction, auctionID)
+            auction = session.get(Auction, auction_id)
 
             if not auction:
                 await webSocket.send_json({"error": "Auction not found"})
@@ -170,16 +181,34 @@ async def auctionWebSocket(
             session.refresh(auction)
             now = datetime.now(timezone.utc)
             if now < auction.start_time:
-                await webSocket.send_json(
-                    {"error": "Auction has not started yet"}
+                print(
+                    "Auction hasn't started."
+                    + f"Now: {now}, Start: {auction.start_time}"
                 )
+                await webSocket.send_json(
+                    {"error": "Auction hasn't started yet"}
+                )
+                continue
             if now > auction.end_time:
-                await webSocket.send_json(
-                    {"error": "Auction has already ended"}
+                print(f"Auction ended. Now: {now}, End: {auction.end_time}")
+                await webSocket.send_json({"error": "Auction has ended"})
+                continue
+
+            if bidAmount <= auction.current_highest_bid:
+                print(
+                    "Bid too low."
+                    + f"Bid:{bidAmount}, Highest:{auction.current_highest_bid}"
                 )
+                await webSocket.send_json(
+                    {
+                        "error": "Bid must be higher than"
+                        + f"{auction.current_highest_bid}"
+                    }
+                )
+                continue
             newBid = Bid(
                 amount=bidAmount,
-                auction_id=auctionID,
+                auction_id=auction_id,
                 bidder_id=user.id,
                 timestamp=now,
             )
@@ -191,11 +220,44 @@ async def auctionWebSocket(
 
             broadcastPayload = {
                 "event": "new_bid",
-                "auction_id": str(auctionID),
+                "auction_id": str(auction_id),
                 "highest_bid": str(auction.current_highest_bid),
                 "timestamp": newBid.timestamp.isoformat(),
             }
-            await manager.broadcastToAuction(auctionID, broadcastPayload)
+            try:
+                await manager.broadcastToAuction(auction_id, broadcastPayload)
+            except Exception as e:
+                print("Broadcast error:", repr(e))
 
-    except WebSocketDisconnect:
-        manager.disconnect(webSocket=webSocket, auctionID=auctionID)
+    except WebSocketDisconnect as e:
+        print("ERROR:", e)
+        manager.disconnect(webSocket=webSocket, auctionID=auction_id)
+
+
+@app.post("/signup", response_model=User)
+def signup(userData: UserCreate, session: Session = Depends(get_session)):
+    existingUser = session.exec(
+        select(User).where(User.username == userData.username)
+    ).first()
+    if existingUser:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Username {userData.username} already exist",
+        )
+    existingEmail = session.exec(
+        select(User).where(User.email == userData.email)
+    ).first()
+    if existingEmail:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Email {userData.email} already exists.",
+        )
+    user = User(
+        username=userData.username,
+        email=userData.email,
+        hashed_password=getPasswordHash(userData.password),
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
