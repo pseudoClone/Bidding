@@ -1,20 +1,30 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    status,
+    WebSocket,
+    Query,
+    WebSocketDisconnect,
+)
 from fastapi.security import OAuth2PasswordRequestForm
-
 from sqlmodel import Session, select
-from uuid import UUID
 from .engine import get_session
 from .model import Auction, AuctionCreate, BidCreate, Bid, User
-from datetime import datetime, timezone
-from .security import verifyPassword, createAccessToken
-from .security import getCurrentUser
+from .security import (
+    verifyPassword,
+    createAccessToken,
+    getCurrentUser,
+    SECRET_KEY,
+    ALGORITHM,
+)
+from .websocketManager import manager
 import jwt
 from jwt import PyJWTError
-from .security import SECRET_KEY, ALGORITHM
-from fastapi import WebSocket, Query, WebSocketDisconnect
-from .websocketManager import manager
 import json
 from decimal import Decimal, InvalidOperation
+from datetime import datetime, timezone
+from uuid import UUID
 
 app = FastAPI()
 
